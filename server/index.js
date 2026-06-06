@@ -16,9 +16,31 @@ const PORT = process.env.PORT || 5050;
 // Set up logger
 app.use(morgan('dev'));
 
-// Configure CORS
+// Configure CORS dynamically to allow local network access (including Tailscale/CGNAT IPs)
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://192.168.1.10:5173',
+  'http://100.116.13.92:5173',
+  process.env.CLIENT_URL
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    
+    const isAllowed = allowedOrigins.includes(origin) ||
+      origin.startsWith('http://192.168.') ||
+      origin.startsWith('http://100.') ||
+      origin.startsWith('http://10.') ||
+      origin.startsWith('http://127.0.0.1');
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('Blocked by CORS policy'));
+    }
+  },
   credentials: true
 }));
 
@@ -58,6 +80,47 @@ async function checkAdmin(userId) {
     return false;
   }
 }
+
+// Health Check Route (Unauthenticated for deployment validation)
+app.get('/health', async (req, res) => {
+  const health = {
+    status: 'ok',
+    timestamp: new Date(),
+    uptime: process.uptime(),
+    database: 'unknown',
+    storage: 'unknown'
+  };
+
+  // 1. Verify PostgreSQL Database
+  try {
+    const dbCheck = await query('SELECT 1');
+    if (dbCheck && dbCheck.rows.length > 0) {
+      health.database = 'connected';
+    } else {
+      health.database = 'disconnected';
+      health.status = 'degraded';
+    }
+  } catch (error) {
+    console.error('Health check DB connection error:', error);
+    health.database = `error: ${error.message}`;
+    health.status = 'degraded';
+  }
+
+  // 2. Verify Upload Folder Writable
+  try {
+    const tempFile = path.join(uploadDir, `.healthcheck-${Date.now()}`);
+    fs.writeFileSync(tempFile, 'healthcheck');
+    fs.unlinkSync(tempFile);
+    health.storage = 'writable';
+  } catch (error) {
+    console.error('Health check Storage check error:', error);
+    health.storage = `error: ${error.message}`;
+    health.status = 'degraded';
+  }
+
+  const statusCode = health.status === 'ok' ? 200 : 500;
+  res.status(statusCode).json(health);
+});
 
 // API Routes
 
