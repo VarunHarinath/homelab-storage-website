@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@clerk/clerk-react';
+import { useAuth } from '../contexts/AuthContext';
 import JSZip from 'jszip';
 import { 
   Search, 
@@ -324,7 +324,6 @@ const Dashboard = () => {
       {/* Filter and Upload Control Bar */}
       <div className="filter-bar">
         <div className="search-container">
-          <Search size={18} className="search-icon" />
           <input 
             type="text" 
             placeholder="Search files by name..." 
@@ -332,19 +331,36 @@ const Dashboard = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+          <Search size={18} className="search-icon" />
         </div>
 
-        <div className="filter-options">
-          <select 
-            className="filter-select"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-          >
-            <option value="all">All Files</option>
-            <option value="images">Photos & Images</option>
-            <option value="documents">Documents</option>
-            <option value="archives">Archives & Zips</option>
-          </select>
+        <div className="filter-options" style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="pill-filters">
+            <button 
+              className={`pill-btn ${filterType === 'all' ? 'active' : ''}`}
+              onClick={() => setFilterType('all')}
+            >
+              <HardDrive size={14} /> All Files
+            </button>
+            <button 
+              className={`pill-btn ${filterType === 'images' ? 'active' : ''}`}
+              onClick={() => setFilterType('images')}
+            >
+              <ImageIcon size={14} /> Photos
+            </button>
+            <button 
+              className={`pill-btn ${filterType === 'documents' ? 'active' : ''}`}
+              onClick={() => setFilterType('documents')}
+            >
+              <FileText size={14} /> Documents
+            </button>
+            <button 
+              className={`pill-btn ${filterType === 'archives' ? 'active' : ''}`}
+              onClick={() => setFilterType('archives')}
+            >
+              <Archive size={14} /> Archives
+            </button>
+          </div>
 
           <button 
             className="upload-trigger-btn"

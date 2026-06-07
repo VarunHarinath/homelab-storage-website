@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@clerk/clerk-react';
+import { useAuth } from '../contexts/AuthContext';
 import { X, File, Download } from 'lucide-react';
 import { formatBytes } from './FileCard';
 

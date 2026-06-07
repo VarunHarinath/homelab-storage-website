@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
-import { useAuth } from '@clerk/clerk-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
-import { X, UploadCloud, File, AlertCircle, FolderSync } from 'lucide-react';
+import { X, UploadCloud, File, AlertCircle, FolderSync, HardDrive } from 'lucide-react';
 import { formatBytes } from './FileCard';
 
 // Recursive Helper to parse dropped files/directories
@@ -54,9 +54,33 @@ const UploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [storageTargets, setStorageTargets] = useState([]);
+  const [selectedTargetId, setSelectedTargetId] = useState('local');
   
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
+
+  // Fetch dynamic storage targets on mount or open
+  useEffect(() => {
+    const fetchTargets = async () => {
+      if (!isOpen) return;
+      try {
+        const token = await getToken();
+        const response = await fetch('/api/storage-targets', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setStorageTargets(data);
+        }
+      } catch (err) {
+        console.error('Error fetching storage targets:', err);
+      }
+    };
+    fetchTargets();
+  }, [isOpen, getToken]);
 
   if (!isOpen) return null;
 
@@ -155,7 +179,8 @@ const UploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
         const response = await axios.post('/api/files/upload', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'X-Storage-Target-Id': selectedTargetId
           },
           onUploadProgress: (progressEvent) => {
             const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -210,6 +235,7 @@ const UploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
           onDragOver={handleDrag}
           onDragLeave={handleDrag}
           onDrop={handleDrop}
+          onClick={uploading ? null : triggerFileSelect}
           style={{ padding: '2.5rem 1.5rem', pointerEvents: uploading ? 'none' : 'auto' }}
         >
           {/* File Picker Inputs */}
@@ -248,6 +274,73 @@ const UploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
             </div>
           )}
         </div>
+
+        {/* Storage Location Selector */}
+        {storageTargets.length > 1 && (
+          <div style={{ marginTop: '1.25rem', textAlign: 'left' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-muted)', display: 'block', marginBottom: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Select Destination Storage Target
+            </span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+              {storageTargets.map(target => {
+                const isSelected = selectedTargetId === target.id;
+                return (
+                  <div 
+                    key={target.id}
+                    onClick={uploading ? null : () => setSelectedTargetId(target.id)}
+                    style={{
+                      background: isSelected ? 'rgba(99, 102, 241, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                      border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                      borderRadius: '12px',
+                      padding: '0.75rem 0.9rem',
+                      cursor: uploading ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      boxShadow: isSelected ? '0 0 12px rgba(99, 102, 241, 0.2)' : 'none',
+                    }}
+                    className={`storage-target-card ${isSelected ? 'active' : ''}`}
+                  >
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: isSelected ? 'var(--primary)' : 'rgba(255, 255, 255, 0.03)',
+                      color: isSelected ? 'white' : 'var(--text-muted)',
+                      transition: 'all 0.2s ease',
+                    }}>
+                      <HardDrive size={16} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                      <span style={{ 
+                        fontSize: '0.8rem', 
+                        fontWeight: '600', 
+                        color: isSelected ? 'white' : 'var(--text-main)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }} title={target.name}>
+                        {target.name}
+                      </span>
+                      <span style={{ 
+                        fontSize: '0.65rem', 
+                        color: 'var(--text-muted)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }} title={target.path}>
+                        {target.path}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Selected Files Queue List */}
         {selectedFiles.length > 0 && (

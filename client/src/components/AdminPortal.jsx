@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@clerk/clerk-react';
+import { useAuth } from '../contexts/AuthContext';
 import { UserPlus, Users, ClipboardList, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { formatBytes } from './FileCard';
 
 const AdminPortal = () => {
   const { getToken } = useAuth();
@@ -70,7 +71,7 @@ const AdminPortal = () => {
         throw new Error(data.error || 'Failed to create user');
       }
 
-      setFormSuccess('User successfully created in Clerk!');
+      setFormSuccess('User successfully registered on this server!');
       setEmail('');
       setPassword('');
       setFirstName('');
@@ -192,8 +193,9 @@ const AdminPortal = () => {
               <thead>
                 <tr>
                   <th>User Details</th>
-                  <th>Clerk User ID</th>
+                  <th>Local User ID</th>
                   <th>Created</th>
+                  <th>Storage Used</th>
                 </tr>
               </thead>
               <tbody>
@@ -215,6 +217,9 @@ const AdminPortal = () => {
                     </td>
                     <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                       {new Date(u.createdAt).toLocaleDateString()}
+                    </td>
+                    <td style={{ fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-main)' }}>
+                      {formatBytes(u.storageUsed || 0)}
                     </td>
                   </tr>
                 ))}
